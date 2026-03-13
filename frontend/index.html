@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adversarial ML Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap"
+        rel="stylesheet" />
+
+    <style>
+        /* ── reset & tokens ───────────────────────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #080c10;
+            --surface: #0d1318;
+            --border: #1a2530;
+            --border-glow: #00ffe760;
+            --accent: #00ffe7;
+            --accent-dim: #00ffe730;
+            --accent2: #ff3c6e;
+            --text: #cdd9e5;
+            --text-muted: #4a6070;
+            --mono: 'Share Tech Mono', monospace;
+            --sans: 'Syne', sans-serif;
+            --radius: 6px;
+            --transition: 220ms ease;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 48px 24px 80px;
+            /* subtle scanline overlay */
+            background-image:
+                repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 231, 0.018) 2px,
+                    rgba(0, 255, 231, 0.018) 4px);
+        }
+
+        /* ── header ───────────────────────────────────────────────────────── */
+        header {
+            text-align: center;
+            margin-bottom: 52px;
+            animation: fadeDown .6s ease both;
+        }
+
+        .eyebrow {
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: .25em;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            opacity: .8;
+        }
+
+        h1 {
+            font-family: var(--sans);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 800;
+            letter-spacing: -.02em;
+            line-height: 1.1;
+            color: #fff;
+        }
+
+        h1 span {
+            color: var(--accent);
+            position: relative;
+        }
+
+        h1 span::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 -4px 0;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 12px var(--accent);
+        }
+
+        .subtitle {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 14px;
+            letter-spacing: .05em;
+        }
+
+        /* ── card ─────────────────────────────────────────────────────────── */
+        .card {
+            width: 100%;
+            max-width: 680px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+            animation: fadeUp .5s ease both;
+        }
+
+        .card+.card {
+            margin-top: 24px;
+        }
+
+        .card-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── upload zone ──────────────────────────────────────────────────── */
+        #drop-zone {
+            border: 1.5px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 36px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color var(--transition), background var(--transition);
+            position: relative;
+        }
+
+        #drop-zone:hover,
+        #drop-zone.drag-over {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        #drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            line-height: 1;
+            filter: grayscale(1) brightness(1.6);
+        }
+
+        .upload-hint {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        #file-name {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--accent);
+            margin-top: 10px;
+            min-height: 18px;
+        }
+
+        /* ── epsilon slider ───────────────────────────────────────────────── */
+        .param-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+
+        .param-label {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .param-label em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            flex: 1;
+            min-width: 120px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 99px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            cursor: pointer;
+            transition: transform var(--transition);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+        }
+
+        /* ── submit button ────────────────────────────────────────────────── */
+        #submit-btn {
+            margin-top: 28px;
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            border: 1.5px solid var(--accent);
+            border-radius: var(--radius);
+            color: var(--accent);
+            font-family: var(--mono);
+            font-size: 13px;
+            letter-spacing: .15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background var(--transition), box-shadow var(--transition), color var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #submit-btn:hover:not(:disabled) {
+            background: var(--accent-dim);
+            box-shadow: 0 0 20px var(--border-glow);
+        }
+
+        #submit-btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        /* loading bar animation inside button */
+        #submit-btn.loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
+            animation: sweep 1.2s linear infinite;
+        }
+
+        /* ── results ──────────────────────────────────────────────────────── */
+        #results-card {
+            display: none;
+        }
+
+        .prediction-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        .prediction-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+        }
+
+        .prediction-box.adversarial {
+            border-color: #ff3c6e40;
+        }
+
+        .pred-header {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .prediction-box.adversarial .pred-header {
+            color: var(--accent2);
+        }
+
+        .pred-value {
+            font-family: var(--mono);
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .pred-sub {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .confidence-bar-wrap {
+            margin-top: 14px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .confidence-bar {
+            height: 100%;
+            border-radius: 99px;
+            background: var(--accent);
+            transition: width .8s cubic-bezier(.23, 1, .32, 1);
+        }
+
+        .prediction-box.adversarial .confidence-bar {
+            background: var(--accent2);
+        }
+
+        /* ── attack changed badge ─────────────────────────────────────────── */
+        #verdict {
+            display: none;
+            font-family: var(--mono);
+            font-size: 12px;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            text-align: center;
+            margin-top: 16px;
+            padding: 9px 16px;
+            border-radius: var(--radius);
+        }
+
+        #verdict.changed {
+            display: block;
+            color: var(--accent2);
+            background: #ff3c6e18;
+            border: 1px solid #ff3c6e40;
+        }
+
+        #verdict.same {
+            display: block;
+            color: var(--text-muted);
+            background: var(--bg);
+            border: 1px solid var(--border);
+        }
+
+        /* ── visualization image ──────────────────────────────────────────── */
+        #viz-card {
+            display: none;
+        }
+
+        #viz-img {
+            width: 100%;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            display: block;
+        }
+
+        /* ── error toast ──────────────────────────────────────────────────── */
+        #error-box {
+            display: none;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--accent2);
+            background: #ff3c6e10;
+            border: 1px solid #ff3c6e40;
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin-top: 16px;
+        }
+
+        /* ── animations ───────────────────────────────────────────────────── */
+        @keyframes fadeDown {
+            from {
+                opacity: 0;
+                transform: translateY(-18px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes sweep {
+            from {
+                left: -100%;
+            }
+
+            to {
+                left: 100%;
+            }
+        }
+
+        .card:nth-child(2) {
+            animation-delay: .1s;
+        }
+
+        .card:nth-child(3) {
+            animation-delay: .2s;
+        }
+
+        .card:nth-child(4) {
+            animation-delay: .3s;
+        }
+
+        /* ── responsive ───────────────────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .prediction-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── header ──────────────────────────────────────────────────────── -->
+    <header>
+        <p class="eyebrow">ResNet18 · FGSM · PGD · ImageNet</p>
+        <h1>Adversarial <span>ML Demo</span></h1>
+        <p class="subtitle">// FGSM &amp; PGD attack visualizer</p>
+    </header>
+
+    <!-- ── upload card ─────────────────────────────────────────────────── -->
+    <div class="card" id="upload-card">
+        <p class="card-label">01 &mdash; Input</p>
+
+        <div id="drop-zone">
+            <input type="file" id="file-input" accept="image/*" />
+            <div class="upload-icon">⬆</div>
+            <p class="upload-hint">Drop image here or click to browse</p>
+            <p id="file-name"></p>
+        </div>
+
+        <div class="param-row">
+            <span class="param-label">ε (epsilon):&nbsp;<em id="eps-display">0.03</em></span>
+            <input type="range" id="epsilon" min="0.005" max="0.3" step="0.005" value="0.03" />
+        </div>
+
+        <button id="submit-btn" disabled>Run Attack</button>
+        <div id="error-box"></div>
+    </div>
+
+    <!-- ── predictions card ────────────────────────────────────────────── -->
+    <div class="card" id="results-card">
+        <p class="card-label">02 &mdash; Predictions</p>
+
+        <div class="prediction-grid">
+            <div class="prediction-box" id="orig-box">
+                <p class="pred-header">Original</p>
+                <p class="pred-value" id="orig-class">—</p>
+                <p class="pred-sub" id="orig-conf">confidence: —</p>
+                <div class="confidence-bar-wrap">
+                    <div class="confidence-bar" id="orig-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div class="prediction-box adversarial" id="fgsm-box">
+                <p class="pred-header">FGSM Attack</p>
+                <p class="pred-value" id="fgsm-class">—</p>
+                <p class="pred-sub" id="fgsm-conf">confidence: —</p>
+                <div class="confidence-bar-wrap">
+                    <div class="confidence-bar" id="fgsm-bar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div class="prediction-box adversarial" id="pgd-box">
+                <p class="pred-header">PGD Attack</p>
+                <p class="pred-value" id="pgd-class">—</p>
+                <p class="pred-sub" id="pgd-conf">confidence: —</p>
+                <div class="confidence-bar-wrap">
+                    <div class="confidence-bar" id="pgd-bar" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="verdict"></div>
+    </div>
+
+    <!-- ── visualization card ──────────────────────────────────────────── -->
+    <div class="card" id="viz-card">
+        <p class="card-label">03 &mdash; Visualization</p>
+        <img id="viz-img" src="" alt="Attack visualization: Original | Adversarial | Perturbation" />
+    </div>
+
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        const VIZ_URL = `${API_BASE}/static/attack_visualization.png`;
+
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileName = document.getElementById('file-name');
+        const epsilonEl = document.getElementById('epsilon');
+        const epsDisplay = document.getElementById('eps-display');
+        const submitBtn = document.getElementById('submit-btn');
+        const errorBox = document.getElementById('error-box');
+
+        const resultsCard = document.getElementById('results-card');
+        const origClass = document.getElementById('orig-class');
+        const origConf = document.getElementById('orig-conf');
+        const origBar = document.getElementById('orig-bar');
+        const fgsmClass = document.getElementById('fgsm-class');
+        const fgsmConf = document.getElementById('fgsm-conf');
+        const fgsmBar = document.getElementById('fgsm-bar');
+        const pgdClass = document.getElementById('pgd-class');
+        const pgdConf = document.getElementById('pgd-conf');
+        const pgdBar = document.getElementById('pgd-bar');
+        const verdict = document.getElementById('verdict');
+
+        const vizCard = document.getElementById('viz-card');
+        const vizImg = document.getElementById('viz-img');
+
+        // ── file selection ────────────────────────────────────────────────
+        fileInput.addEventListener('change', () => {
+            const f = fileInput.files[0];
+            if (f) {
+                fileName.textContent = f.name;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // ── drag-and-drop styling ─────────────────────────────────────────
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const f = e.dataTransfer.files[0];
+            if (f && f.type.startsWith('image/')) {
+                const dt = new DataTransfer();
+                dt.items.add(f);
+                fileInput.files = dt.files;
+                fileName.textContent = f.name;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // ── epsilon live display ──────────────────────────────────────────
+        epsilonEl.addEventListener('input', () => {
+            epsDisplay.textContent = parseFloat(epsilonEl.value).toFixed(3);
+        });
+
+        // ── submit ────────────────────────────────────────────────────────
+        submitBtn.addEventListener('click', runAttack);
+
+        async function runAttack() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            // UI: loading state
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+            submitBtn.textContent = 'Attacking…';
+            hideError();
+            resultsCard.style.display = 'none';
+            vizCard.style.display = 'none';
+            verdict.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const epsilon = parseFloat(epsilonEl.value);
+            const url = `${API_BASE}/attack/image?epsilon=${epsilon}`;
+
+            try {
+                const res = await fetch(url, { method: 'POST', body: formData });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: res.statusText }));
+                    throw new Error(err.detail ?? `HTTP ${res.status}`);
+                }
+
+                const data = await res.json();
+                renderResults(data);
+
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('loading');
+                submitBtn.textContent = 'Run Attack';
+            }
+        }
+
+        // ── render predictions ────────────────────────────────────────────
+        function renderResults(data) {
+            const orig = data.original_prediction;
+            const fgsm = data.fgsm_prediction;
+            const pgd = data.pgd_prediction;
+
+            // original
+            origClass.textContent = `Class #${orig.class_index}`;
+            origConf.textContent = `confidence: ${(orig.confidence * 100).toFixed(2)}%`;
+            origBar.style.width = `${orig.confidence * 100}%`;
+
+            // fgsm
+            fgsmClass.textContent = `Class #${fgsm.class_index}`;
+            fgsmConf.textContent = `confidence: ${(fgsm.confidence * 100).toFixed(2)}%`;
+            fgsmBar.style.width = `${fgsm.confidence * 100}%`;
+
+            // pgd
+            pgdClass.textContent = `Class #${pgd.class_index}`;
+            pgdConf.textContent = `confidence: ${(pgd.confidence * 100).toFixed(2)}%`;
+            pgdBar.style.width = `${pgd.confidence * 100}%`;
+
+            // verdict: flag if either attack flipped the prediction
+            const fgsmFlipped = fgsm.class_index !== orig.class_index;
+            const pgdFlipped = pgd.class_index !== orig.class_index;
+
+            if (fgsmFlipped || pgdFlipped) {
+                const parts = [];
+                if (fgsmFlipped) parts.push(`FGSM #${orig.class_index} → #${fgsm.class_index}`);
+                if (pgdFlipped) parts.push(`PGD #${orig.class_index} → #${pgd.class_index}`);
+                verdict.className = 'changed';
+                verdict.textContent = `⚠ Adversarial attack succeeded — ${parts.join(' · ')}`;
+            } else {
+                verdict.className = 'same';
+                verdict.textContent = `Model held — prediction unchanged at class #${orig.class_index}`;
+            }
+
+            resultsCard.style.display = 'block';
+
+            // ── visualization image (cache-bust so browser reloads) ────────
+            const cacheBust = Date.now();
+            vizImg.src = `${VIZ_URL}?t=${cacheBust}`;
+            vizImg.onload = () => { vizCard.style.display = 'block'; };
+            vizImg.onerror = () => { /* backend may not have saved it yet — silently skip */ };
+        }
+
+        // ── error helpers ─────────────────────────────────────────────────
+        function showError(msg) {
+            errorBox.textContent = `⚠ ${msg}`;
+            errorBox.style.display = 'block';
+        }
+
+        function hideError() {
+            errorBox.style.display = 'none';
+            errorBox.textContent = '';
+        }
+    </script>
+</body>
+
+</html>
