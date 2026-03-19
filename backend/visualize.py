@@ -7,6 +7,8 @@ Provides:
             Original | Adversarial | Perturbation (amplified difference)
 """
 
+from typing import Optional, Tuple
+
 import matplotlib.pyplot as plt
 import torch
 
@@ -24,9 +26,9 @@ def visualize_attack(
     adversarial_tensor: torch.Tensor,
     *,
     amplify_perturbation: float = 10.0,
-    figsize: tuple[float, float] = (12.0, 4.0),
+    figsize: Tuple[float, float] = (12.0, 4.0),
     title_fontsize: int = 13,
-    save_path: str | None = None,
+    save_path: Optional[str] = None,
 ) -> plt.Figure:
     """
     Display original, adversarial, and perturbation images side-by-side.
@@ -37,10 +39,10 @@ def visualize_attack(
     adversarial_tensor    : Tensor – perturbed image,   shape (1, 3, 224, 224)
     amplify_perturbation  : float  – scale factor for the difference image so
                                      the (often tiny) perturbation is visible.
-                                     Default 10×.
+                                     Default 10x.
     figsize               : tuple  – overall figure size in inches.
     title_fontsize        : int    – font size for subplot titles.
-    save_path             : str | None – if given, save the figure to this path
+    save_path             : str or None – if given, save the figure to this path
                                          before returning.
 
     Returns
@@ -67,7 +69,7 @@ def visualize_attack(
     panels = [
         (axes[0], original_img,    "Original"),
         (axes[1], adversarial_img, "Adversarial"),
-        (axes[2], perturbation_img, f"Perturbation (×{amplify_perturbation:g})"),
+        (axes[2], perturbation_img, "Perturbation (x{:g})".format(amplify_perturbation)),
     ]
 
     for ax, image, title in panels:

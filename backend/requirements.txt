@@ -1,0 +1,8 @@
+torch
+torchvision
+fastapi
+uvicorn[standard]
+pillow
+asyncpg
+redis[asyncio]
+python-dotenv
