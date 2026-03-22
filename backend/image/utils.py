@@ -43,7 +43,7 @@ def run_inference(model: torch.nn.Module, tensor: torch.Tensor) -> dict:
             "confidence":  float, # softmax probability of top-1 class
         }
     """
-    from model import get_imagenet_labels
+    from .model import get_imagenet_labels
     labels = get_imagenet_labels()
 
     with torch.no_grad():
@@ -74,7 +74,7 @@ def run_top5_inference(model: torch.nn.Module, tensor: torch.Tensor) -> dict:
             ]
         }
     """
-    from model import get_imagenet_labels
+    from .model import get_imagenet_labels
     labels = get_imagenet_labels()
 
     with torch.no_grad():
